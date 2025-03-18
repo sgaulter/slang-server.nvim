@@ -8,25 +8,23 @@ local M = {}
 function M.make_parser()
 	local parser = cmdparse.ParameterParser.new({ "hierarchy", help = "Open the module hierarchy view" })
 
+	parser:add_parameter({
+		"top",
+		required = false,
+		help = "The top level at which to initialise the hierarchy view. Defaults to current module.",
+	})
 
 	parser:set_execute(function(data)
 		---@cast data mega.cmdparse.NamespaceExecuteArguments
-
-    -- TODO: arguments?
-		-- local names = {}
-		-- for _, argument in ipairs(data.input.arguments) do
-		-- 	table.insert(names, argument.name)
-		-- end
-
-		M.run()
+		M.run(data.namespace.top)
 	end)
 
 	return parser
 end
 
-function M.run()
-	require("slang-server.hierarchy").open()
+---@param top slang-server.HierarchyPath?
+function M.run(top)
+	require("slang-server.hierarchy").show(top)
 end
-
 
 return M

@@ -7,29 +7,45 @@ vim.g.loaded_slang_server = false
 
 ---@type slang-server.Configuration
 local default_config = {
+	hierarchy = {
+		position = "left",
+		size = 30,
+	},
 	kinds = {
 		instance = {
-			open = { icon = "I", hl = "SlangServerInstance" },
-			closed = { icon = "i", hl = "SlangServerInstance" },
+			open = { icon = "", hl = "SlangServerInstance" },
+			closed = { icon = "", hl = "SlangServerInstance" },
 		},
 		scope = {
-			open = { icon = "S", hl = "SlangServerScope" },
-			closed = { icon = "s", hl = "SlangServerScope" },
+			open = { icon = "", hl = "SlangServerScope" },
+			closed = { icon = "", hl = "SlangServerScope" },
 		},
-		port = { icon = "P", hl = "SlangServerPort" },
-		param = { icon = "A", hl = "SlangServerParam" },
-		reg = { icon = "R", hl = "SlangServerReg" },
+		port = {
+			input = { icon = "", hl = "SlangServerPortInput" },
+			output = { icon = "", hl = "SlangServerPortOutput" },
+			inout = { icon = "", hl = "SlangServerPortInout" },
+		},
+		param = { icon = "", hl = "SlangServerParam" },
+		logic = { icon = "󱒖", hl = "SlangServerLogic" },
+		reg = { icon = "", hl = "SlangServerReg" },
 	},
 	highlights = {
+		SlangServerHeading = {
+			fg = "#c75ae8",
+			bold = true,
+		},
 		SlangServerHierarchyTop = {
 			fg = "#f65866",
 			bold = true,
 		},
 		SlangServerInstance = { fg = "#efbd5d" },
 		SlangServerScope = { fg = "#41a7fc" },
-		SlangServerPort = { fg = "#93a4c3" },
-		SlangSererParam = { fg = "#93a4c3" },
-		SlangServerReg = { fg = "#93a4c3" },
+		SlangServerPortInput = { fg = "#8bcd5b" },
+		SlangServerPortOutput = { fg = "#dd9046" },
+		SlangServerPortInout = { fg = "#34bfd0" },
+		SlangSererParam = { fg = "#dd9046" },
+		SlangSererLogic = { fg = "#c75ae8" },
+		SlangServerReg = { fg = "#f65866" },
 	},
 }
 

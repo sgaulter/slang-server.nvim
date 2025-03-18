@@ -3,7 +3,11 @@
 ---    The user's slang-server configuration
 ---@field kinds slang-server.ConfigurationKinds?
 ---@field highlights slang-server.ConfigurationHighlights?
----@field initialise function?
+---@field hierarchy slang-server.ConfigurationHierarchy?
+
+---@class (exact) slang-server.ConfigurationHierarchy
+---@field position string?
+---@field size integer?
 
 ---@class (exact) slang-server.ConfigurationKinds
 ---@field instance slang-server.ConfigurationKindScoped?
@@ -21,3 +25,5 @@
 ---@field closed slang-server.ConfigurationKind?
 
 ---@alias slang-server.ConfigurationHighlights table<string, vim.api.keyset.highlight>
+
+---@alias slang-server.HierarchyPath string

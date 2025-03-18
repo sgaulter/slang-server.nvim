@@ -1,7 +1,10 @@
+local config = require("slang-server._core.config").CONFIG
+
 local M = {}
 
 M.ns_id = vim.api.nvim_create_namespace("SlangServer")
 
+M.HIER_HEADING = "SlangServerHeading"
 M.HIER_TOP = "SlangServerHierarchyTop"
 M.HIER_INSTANCE = "SlangServerInstance"
 M.HIER_SCOPE = "SlangServerScope"
@@ -9,10 +12,11 @@ M.HIER_PORT = "SlangServerPort"
 M.HIER_PARAM = "SlangServerParam"
 M.HIER_REG = "SlangServerReg"
 
-M.setup = function(config)
-	for hl_name, hl_opts in pairs(config.highlights) do
-		vim.api.nvim_set_hl(M.ns_id, hl_name, hl_opts)
-	end
+M.HIER_SUBTLE = "Comment"
+M.HIER_ERROR = "ErrorMsg"
+
+for hl_name, hl_opts in pairs(config.highlights) do
+	vim.api.nvim_set_hl(M.ns_id, hl_name, hl_opts)
 end
 
 return M
