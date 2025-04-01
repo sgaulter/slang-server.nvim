@@ -16,7 +16,9 @@ M.HIER_SUBTLE = "Comment"
 M.HIER_ERROR = "ErrorMsg"
 
 for hl_name, hl_opts in pairs(config.highlights) do
-	vim.api.nvim_set_hl(M.ns_id, hl_name, hl_opts)
+   vim.api.nvim_set_hl(M.ns_id, hl_name, hl_opts)
 end
+
+vim.api.nvim_set_hl_ns(M.ns_id)
 
 return M

@@ -9,7 +9,7 @@ config.initialise()
 
 ---@param opts slang-server.Configuration?
 M.setup = function(opts)
-	config.update(opts)
+   config.update(opts)
 end
 
 return M

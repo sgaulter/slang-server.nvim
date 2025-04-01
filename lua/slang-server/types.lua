@@ -26,4 +26,17 @@
 
 ---@alias slang-server.ConfigurationHighlights table<string, vim.api.keyset.highlight>
 
----@alias slang-server.HierarchyPath string
+---@alias slang-server.hierarchy.Path string
+
+---@class slang-server.TreeNode
+---@field path string
+---@field _populated boolean
+---@field kind slang-server.SlangKind
+---@field instName string
+---@field instLoc slang-server.SourceLoc
+---@field type string?
+---@field value string?
+---@field children slang-server.TreeNode[]?
+---@field declName string?
+---@field declLoc slang-server.SourceLoc?
+
