@@ -27,11 +27,11 @@ local default_config = {
       SlangServerInstance = { fg = "#efbd5d" },
       SlangServerScope = { fg = "#41a7fc" },
       SlangServerPortInput = { fg = "#8bcd5b" },
-      SlangServerPortOutput = { fg = "#dd9046" },
+      SlangServerPortOutput = { fg = "#f65866" },
       SlangServerPortInout = { fg = "#34bfd0" },
-      SlangSererParam = { fg = "#dd9046" },
-      SlangSererLogic = { fg = "#c75ae8" },
-      SlangServerReg = { fg = "#f65866" },
+      SlangServerParam = { fg = "#c75ae8" },
+      SlangServerLogic = { fg = "#dd9046" },
+      SlangServerReg = { fg = "#dd9046" },
    },
 }
 

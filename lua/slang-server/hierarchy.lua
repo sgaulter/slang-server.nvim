@@ -176,7 +176,7 @@ local function prepare_node(node, parent_node)
       end
 
       line:append(string.rep("  ", node:get_depth() - 1) .. box, highlights.HIER_SUBTLE)
-      line:append(expander, highlights.HIER_SUBTLE)
+      line:append(expander, highlights.HIER_NORMAL)
       line:append(" " .. decoration.icon, decoration.hl)
       line:append(" " .. node.instName, decoration.hl)
       if hint then

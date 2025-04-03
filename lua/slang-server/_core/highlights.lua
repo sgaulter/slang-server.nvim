@@ -12,6 +12,7 @@ M.HIER_PORT = "SlangServerPort"
 M.HIER_PARAM = "SlangServerParam"
 M.HIER_REG = "SlangServerReg"
 
+M.HIER_NORMAL = "Normal"
 M.HIER_SUBTLE = "Comment"
 M.HIER_ERROR = "ErrorMsg"
 
