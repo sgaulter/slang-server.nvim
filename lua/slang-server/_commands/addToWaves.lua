@@ -2,6 +2,7 @@
 
 local cmdparse = require("mega.cmdparse")
 local client = require("slang-server._lsp.client")
+local handlers = require("slang-server.handlers")
 local NuiMenu = require("nui.menu")
 
 local M = {}
@@ -31,12 +32,7 @@ function M.run()
          end
          if #resp == 1 then
             -- TODO -- scopes
-            client.variableToWaveform(bufnr, {
-               on_success = function(_) end,
-               on_failure = function(msg)
-                  vim.notify(msg, vim.log.level.ERROR)
-               end,
-            }, { hierPath = resp[1].path })
+            client.variableToWaveform(bufnr, handlers.defaultHandlers, { hierPath = resp[1].path })
          else
             local lines = {}
             for i = 1, #resp do
@@ -58,20 +54,13 @@ function M.run()
             }, {
                lines = lines,
                on_submit = function(item)
-                  client.variableToWaveform(bufnr, {
-                     on_success = function(_) end,
-                     on_failure = function(msg)
-                        vim.notify(msg, vim.log.level.ERROR)
-                     end,
-                  }, { hierPath = item.inst.path })
+                  client.variableToWaveform(bufnr, handlers.defaultHandlers, { hierPath = item.inst.path })
                end,
             })
             menu:mount()
          end
       end,
-      on_failure = function(msg)
-         vim.notify(msg, vim.log.levels.ERROR)
-      end,
+      on_failure = handlers.defaultOnFailure,
    }, { position = vim.lsp.util.make_position_params() })
 end
 

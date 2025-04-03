@@ -3,6 +3,7 @@ local NuiLine = require("nui.line")
 local NuiSplit = require("nui.split")
 local NuiTree = require("nui.tree")
 local client = require("slang-server._lsp.client")
+local handlers = require("slang-server.handlers")
 local highlights = require("slang-server._core.highlights")
 local config = require("slang-server._core.config").CONFIG
 
@@ -263,9 +264,7 @@ function M._lazy_open(path)
       on_success = function(resp)
          show_nodes(resp, path)
       end,
-      on_failure = function(msg)
-         vim.notify(msg, vim.log.levels.ERROR)
-      end,
+      on_failure = handlers.defaultOnFailure,
    }, { hierPath = path })
 end
 

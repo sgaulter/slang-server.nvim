@@ -2,6 +2,7 @@
 
 local cmdparse = require("mega.cmdparse")
 local client = require("slang-server._lsp.client")
+local handlers = require("slang-server.handlers")
 
 local M = {}
 
@@ -25,12 +26,7 @@ end
 
 ---@param file string
 function M.run(file)
-   client.openWaveform(vim.api.nvim_get_current_buf(), {
-      on_success = function(_) end,
-      on_failure = function(msg)
-         vim.notify(msg, vim.log.levels.ERROR)
-      end,
-   }, { uri = file })
+   client.openWaveform(vim.api.nvim_get_current_buf(), handlers.defaultHandlers, { uri = file })
 end
 
 return M
