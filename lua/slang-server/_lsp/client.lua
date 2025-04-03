@@ -88,4 +88,44 @@ M.getScopesByModule = function(bufnr, handlers)
    }, handlers)
 end
 
+---@param bufnr integer
+---@param handlers RespHandlers
+---@param params { uri: string }
+M.openWaveform = function(bufnr, handlers, params)
+   lsp_execute(bufnr, {
+      command = "slang.openWaveform",
+      arguments = { params.uri },
+   }, handlers)
+end
+
+---@param bufnr integer
+---@param handlers RespHandlers
+---@param params { position: lsp.TextDocumentPositionParams }
+M.getInstances = function(bufnr, handlers, params)
+   lsp_execute(bufnr, {
+      command = "slang.getInstances",
+      arguments = { params.position },
+   }, handlers)
+end
+
+---@param bufnr integer
+---@param handlers RespHandlers
+---@param params { hierPath: string }
+M.variableToWaveform = function(bufnr, handlers, params)
+   lsp_execute(bufnr, {
+      command = "slang.variableToWaveform",
+      arguments = { params.hierPath },
+   }, handlers)
+end
+
+---@param bufnr integer
+---@param handlers RespHandlers
+---@param params { hierPath: string }
+M.scopeToWaveform = function(bufnr, handlers, params)
+   lsp_execute(bufnr, {
+      command = "slang.scopeToWaveform",
+      arguments = { params.hierPath },
+   }, handlers)
+end
+
 return M
