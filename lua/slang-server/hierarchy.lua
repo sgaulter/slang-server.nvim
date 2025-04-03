@@ -6,6 +6,7 @@ local client = require("slang-server._lsp.client")
 local handlers = require("slang-server.handlers")
 local highlights = require("slang-server._core.highlights")
 local config = require("slang-server._core.config").CONFIG
+local util = require("slang-server.util")
 
 local M = {}
 
@@ -14,21 +15,26 @@ local M = {}
 ---@field scope string?
 ---@field split NuiSplit?
 ---@field tree NuiTree?
----@field text_bufnr integer?
+---@field text_bufnr integer
+---@field text_winnr integer
 
 ---@type slang-server.hierarchy.state
 M.state = { open = false }
 
--- M.state.text_buffer returns the most recently focused text buffer
+-- M.state.text_bufnr returns the most recently focused text buffer
+-- M.state.text_winnr returns the most recently focused text window
 setmetatable(M.state, {
+   ---@param _k string
+   ---@return integer
    __index = function(self, _k)
+      local cbuf = vim.fn.bufnr()
+      local in_split = self.split and self.split.bufnr == cbuf
+
+      local cwin = vim.fn.winnr()
       if _k == "text_bufnr" then
-         local cur_buffer = vim.api.nvim_get_current_buf()
-         if self.split and self.split.bufnr == cur_buffer then
-            return vim.fn.bufnr("#")
-         else
-            return cur_buffer
-         end
+         return in_split and vim.fn.bufnr("#") or cbuf
+      elseif _k == "text_winnr" then
+         return in_split and vim.fn.winnr("#") or cwin
       end
    end,
 })
@@ -36,68 +42,93 @@ setmetatable(M.state, {
 ---@param split NuiSplit
 ---@param tree NuiTree
 local function map_keys(split, tree)
-   --TODO: configurable mappings
+   local mappings
+   mappings = {
+      {
+         mode = "n",
+         map = "y",
+         fn = function()
+            local node = tree:get_node()
+            if not node then
+               return
+            end
 
-   -- Map to unmount (close) the hierarchy
-   split:map("n", "q", function()
-      split:unmount()
-   end, { noremap = true })
+            vim.fn.setreg("+", node:get_id()) --TODO: default register
 
-   -- Yank the full hierarchical path to the clipboard
-   split:map("n", "y", function()
-      local node = tree:get_node()
-      if not node then
-         return
-      end
+            vim.notify("Yanked " .. node:get_id(), vim.log.levels.INFO)
+         end,
+         opts = { noremap = true },
+         desc = "Yank hierarchical node path",
+      },
+      {
+         mode = "n",
+         map = "<cr>",
+         fn = function()
+            local node = tree:get_node()
+            if not (node and node.instLoc) then
+               return
+            end
 
-      vim.fn.setreg("+", node:get_id()) --TODO: default register
+            util.jump_loc(node.instLoc, M.state.text_winnr)
+         end,
+         opts = { noremap = true },
+         desc = "Jump to node in source",
+      },
+      {
+         mode = "n",
+         map = "gd",
+         fn = function()
+            local node = tree:get_node()
+            if not (node and node.declLoc) then
+               return
+            end
+            util.jump_loc(node.declLoc, M.state.text_winnr)
+         end,
+         opts = { noremap = true },
+         desc = "Jump to node declaration in source",
+      },
+      {
+         mode = "n",
+         map = "<space>",
+         fn = function()
+            local node = tree:get_node()
 
-      vim.notify("Yanked " .. node:get_id(), vim.log.levels.INFO)
-   end, { noremap = true })
+            if not node then
+               return
+            end
 
-   ---@param loc slang-server.ScopedRange
-   local function jump(loc)
-      local buf = vim.uri_to_bufnr(loc.uri)
-      local start = loc.range.start
-      local win = vim.fn.win_findbuf(M.state.text_bufnr)[1]
+            if node:is_expanded() and node:collapse() then
+               tree:render()
+            else
+               M._lazy_open(node.path)
+            end
+         end,
+         opts = { noremap = true },
+         desc = "Expand / collapse node",
+      },
+      {
+         mode = "n",
+         map = "q",
+         fn = function()
+            split:unmount()
+         end,
+         opts = { noremap = true },
+         desc = "Close",
+      },
+      {
+         mode = "n",
+         map = "?",
+         fn = function()
+            util.show_help(mappings, "Hierarchy view")
+         end,
+         opts = { noremap = true },
+         desc = "Show help",
+      },
+   }
 
-      vim.api.nvim_win_set_buf(win, buf)
-      vim.api.nvim_win_set_cursor(win, { start.line + 1, start.character })
-      vim.api.nvim_set_current_win(win)
+   for _, map in ipairs(mappings) do
+      split:map(map.mode, map.map, map.fn, map.opts)
    end
-
-   -- <CR> to jump to the source location
-   split:map("n", "<cr>", function()
-      local node = tree:get_node()
-      if not (node and node.instLoc) then
-         return
-      end
-
-      jump(node.instLoc)
-   end, { noremap = true })
-
-   split:map("n", "gd", function()
-      local node = tree:get_node()
-      if not (node and node.declLoc) then
-         return
-      end
-      jump(node.declLoc)
-   end, { noremap = true })
-
-   -- Space to toggle expand / collapse
-   split:map("n", "<space>", function()
-      local node = tree:get_node()
-
-      if not node then
-         return
-      end
-
-      if node:is_expanded() and node:collapse() then
-         tree:render()
-      else
-         M._lazy_open(node.path)
-      end
-   end, { noremap = true })
 end
 
 ---@param msg string

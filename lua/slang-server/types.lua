@@ -40,3 +40,9 @@
 ---@field declName string?
 ---@field declLoc slang-server.SourceLoc?
 
+---@class slang-server.UiMapping
+---@field mode string
+---@field map string
+---@field fn function
+---@field opts table
+---@field desc string

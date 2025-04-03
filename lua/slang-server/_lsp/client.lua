@@ -62,11 +62,11 @@ end
 
 ---@param bufnr integer
 ---@param handlers RespHandlers
----@param params { hierPath: string }
+---@param params { hierPath: string? }
 M.getScope = function(bufnr, handlers, params)
    lsp_execute(bufnr, {
       command = "slang.getScope",
-      arguments = { params.hierPath },
+      arguments = { params.hierPath or "" },
    }, handlers)
 end
 
