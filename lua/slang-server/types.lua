@@ -40,6 +40,10 @@
 ---@field declName string?
 ---@field declLoc slang-server.SourceLoc?
 
+---@class slang-server.UiSubcommand
+---@field impl fun(args: string[], opts: table)
+---@field complete? string | fun(subcmd_arg_lead: string): string[]
+
 ---@class slang-server.UiMapping
 ---@field mode string
 ---@field map string

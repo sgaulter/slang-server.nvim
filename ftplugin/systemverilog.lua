@@ -1,21 +1,44 @@
-local cmdparser = require("mega.cmdparse")
+local _CMD = "SlangServer"
 
-local _PREFIX = "SlangServer"
+local subcommands = {}
+subcommands = vim.tbl_deep_extend("error", subcommands, require("slang-server._commands.hierarchy"))
+subcommands = vim.tbl_deep_extend("error", subcommands, require("slang-server._commands.openWaveform"))
+subcommands = vim.tbl_deep_extend("error", subcommands, require("slang-server._commands.addToWaves"))
 
----@type mega.cmdparse.ParserCreator
-local _SUBCOMMANDS = function()
-   local hierarchy = require("slang-server._commands.hierarchy")
-   local openWaveform = require("slang-server._commands.openWaveform")
-   local addToWaves = require("slang-server._commands.addToWaves")
+---@param opts table
+local function slang_server(opts)
+   local fargs = opts.fargs
 
-   local parser = cmdparser.ParameterParser.new({ name = _PREFIX, help = "SlangServer" })
-   local subparsers = parser:add_subparsers({ "commands", help = "All subcommands" })
+   local subcommand_key = fargs[1]
 
-   subparsers:add_parser(hierarchy.make_parser())
-   subparsers:add_parser(openWaveform.make_parser())
-   subparsers:add_parser(addToWaves.make_parser())
+   local args = #fargs > 1 and vim.list_slice(fargs, 2, #fargs) or {}
 
-   return parser
+   local subcommand = subcommands[subcommand_key]
+   if not subcommand then
+      vim.notify(_CMD, vim.log.levels.ERROR)
+      return
+   end
+
+   subcommand.impl(args, opts)
 end
 
-cmdparser.create_user_command(_SUBCOMMANDS, _PREFIX)
+vim.api.nvim_create_user_command(_CMD, slang_server, {
+   nargs = "+",
+   desc = "SlangServer",
+   complete = function(arg_lead, cmdline, _)
+      local subcmd_key, subcmd_arg_lead = cmdline:match("^" .. _CMD .. "%s(%S+)%s(.*)$")
+
+      if subcmd_key and subcmd_arg_lead and subcommands[subcmd_key] and subcommands[subcmd_key].complete then
+         return subcommands[subcmd_key].complete(subcmd_arg_lead)
+      end
+
+      if cmdline:find("^" .. _CMD .. "%s+%w*$") then
+         local subcommand_keys = vim.tbl_keys(subcommands)
+         return vim.iter(subcommand_keys)
+            :filter(function(key)
+               return key:find("^" .. arg_lead) ~= nil
+            end)
+            :totable()
+      end
+   end,
+})

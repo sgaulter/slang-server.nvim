@@ -1,5 +1,40 @@
 M = {}
 
+---@param arg_lead string
+---@param opts table
+---@return string[]
+function M.complete_path(arg_lead, opts)
+   local cdir = vim.fs.normalize(vim.fs.dirname(arg_lead))
+   local fstub = vim.fs.basename(arg_lead)
+
+   if not vim.fn.isdirectory(cdir) then
+      return {}
+   end
+
+   local function mkpath(item, itype)
+      local path
+      if cdir == "." and not string.match(arg_lead, "^%./") then
+         path = item
+      else
+         path = vim.fs.joinpath(cdir, item)
+      end
+
+      if itype == "directory" then
+         path = vim.fs.joinpath(path, "")
+      end
+      return path
+   end
+
+   local completions = {}
+   for item, itype in vim.fs.dir(cdir, {}) do
+      if string.match(item, "^" .. fstub) then
+         completions[#completions + 1] = mkpath(item, itype)
+      end
+   end
+
+   return completions
+end
+
 ---@param loc slang-server.ScopedRange
 ---@param winnr integer
 function M.jump_loc(loc, winnr)
