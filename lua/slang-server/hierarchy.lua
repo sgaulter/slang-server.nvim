@@ -2,6 +2,7 @@ local NuiText = require("nui.text")
 local NuiLine = require("nui.line")
 local NuiSplit = require("nui.split")
 local NuiTree = require("nui.tree")
+local NuiPopup = require("nui.popup")
 local client = require("slang-server._lsp.client")
 local handlers = require("slang-server.handlers")
 local highlights = require("slang-server._core.highlights")
@@ -15,6 +16,7 @@ local M = {}
 ---@field scope string?
 ---@field split NuiSplit?
 ---@field tree NuiTree?
+---@field hover NuiPopup?
 ---@field text_bufnr integer
 ---@field text_winnr integer
 
@@ -59,6 +61,22 @@ local function map_keys(split, tree)
          end,
          opts = { noremap = true },
          desc = "Yank hierarchical node path",
+      },
+      {
+         mode = "n",
+         map = "v",
+         fn = function()
+            local node = tree:get_node()
+            if not (node and node.value) then
+               return
+            end
+
+            vim.fn.setreg("+", node.value) --TODO: default register
+
+            vim.notify("Yanked " .. node.value, vim.log.levels.INFO)
+         end,
+         opts = { noremap = true },
+         desc = "Yank node value",
       },
       {
          mode = "n",
@@ -160,6 +178,49 @@ local function on_close()
    M.state.tree = nil
    M.state.split = nil
    M.state.open = false
+end
+
+local function on_select()
+   if not M.state.open then
+      return
+   end
+
+   if M.state.hover then
+      M.state.hover:unmount()
+   end
+
+   local selected = M.state.tree:get_node()
+   if not (selected and selected.value) then
+      return
+   end
+
+   M.state.hover = NuiPopup({
+      enter = false,
+      focusable = false,
+      size = {
+         width = string.len(selected.value),
+         height = 1,
+      },
+      relative = "cursor",
+      position = {
+         row = 1,
+         col = 0,
+      },
+      border = {
+         style = "none",
+         padding = { 0, 1 },
+      },
+   })
+   local event = require("nui.utils.autocmd").event
+   M.state.hover:on({ event.BufLeave }, function()
+      M.state.hover:unmount()
+   end, { once = true })
+
+   local line = NuiLine()
+   line:append(selected.value, highlights.HIER_VALUE)
+   line:render(M.state.hover.bufnr, -1, 1)
+
+   M.state.hover:mount()
 end
 
 ---@param node NuiTree.Node
@@ -319,6 +380,7 @@ function M.show(top)
 
    local event = require("nui.utils.autocmd").event
    split:on(event.BufUnload, on_close, { once = true })
+   split:on(event.CursorMoved, on_select)
 
    split:mount()
 

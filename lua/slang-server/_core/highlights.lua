@@ -14,6 +14,7 @@ M.HIER_REG = "SlangServerReg"
 
 M.HIER_NORMAL = "Normal"
 M.HIER_SUBTLE = "Comment"
+M.HIER_VALUE = "Constant"
 M.HIER_ERROR = "ErrorMsg"
 
 for hl_name, hl_opts in pairs(config.highlights) do

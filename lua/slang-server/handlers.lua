@@ -4,7 +4,7 @@ M.defaultOnSuccess = function(_) end
 
 ---@param msg string
 M.defaultOnFailure = function(msg)
-   vim.notify(msg, vim.log.level.ERROR)
+   vim.notify(msg, vim.log.levels.ERROR)
 end
 
 M.defaultHandlers = {
