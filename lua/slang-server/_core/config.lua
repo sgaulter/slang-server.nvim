@@ -1,11 +1,11 @@
 local M = {}
 
----@type slang-server.Configuration
+---@type slang-server.config.Configuration
 M.CONFIG = {}
 
 vim.g.loaded_slang_server = false
 
----@type slang-server.Configuration
+---@type slang-server.config.Configuration
 local default_config = {
    hierarchy = {
       position = "left",
@@ -44,7 +44,7 @@ M.initialise = function()
    end
 end
 
----@param opts slang-server.Configuration?
+---@param opts slang-server.config.Configuration?
 M.update = function(opts)
    M.CONFIG = vim.tbl_deep_extend("force", M.CONFIG, opts or {})
 end

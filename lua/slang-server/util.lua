@@ -46,7 +46,7 @@ function M.jump_loc(loc, winnr)
    vim.api.nvim_win_set_cursor(win, { start.line + 1, start.character })
 end
 
----@param mappings slang-server.UiMapping[]
+---@param mappings slang-server.ui.Mapping[]
 ---@param title string?
 ---@param opts table?
 function M.show_help(mappings, title, opts)

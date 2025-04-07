@@ -7,7 +7,7 @@ local M = {}
 
 config.initialise()
 
----@param opts slang-server.Configuration?
+---@param opts slang-server.config.Configuration?
 M.setup = function(opts)
    config.update(opts)
 end

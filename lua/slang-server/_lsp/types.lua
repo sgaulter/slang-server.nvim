@@ -30,7 +30,7 @@
 
 ---@class slang-server.lsp.Instance : slang-server.lsp.Item
 ---@field declName string
----@field declLoc SourceLoc
+---@field declLoc slang-server.ScopedRange
 
 ---@class slang-server.lsp.FilledInstance : slang-server.lsp.Scope, slang-server.lsp.Instance
 

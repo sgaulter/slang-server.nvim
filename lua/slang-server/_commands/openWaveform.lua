@@ -2,7 +2,7 @@
 
 local M = {}
 
----@type slang-server.UiSubcommand
+---@type slang-server.ui.Subcommand
 M.openWaveform = {
    impl = function(args, opts)
       local client = require("slang-server._lsp.client")

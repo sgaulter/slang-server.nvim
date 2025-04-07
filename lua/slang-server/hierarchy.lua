@@ -1,5 +1,6 @@
 local NuiText = require("nui.text")
 local NuiLine = require("nui.line")
+local NuiMenu = require("nui.menu")
 local NuiSplit = require("nui.split")
 local NuiTree = require("nui.tree")
 local NuiPopup = require("nui.popup")
@@ -11,16 +12,7 @@ local util = require("slang-server.util")
 
 local M = {}
 
----@class slang-server.hierarchy.state
----@field open boolean
----@field scope string?
----@field split NuiSplit?
----@field tree NuiTree?
----@field hover NuiPopup?
----@field text_bufnr integer
----@field text_winnr integer
-
----@type slang-server.hierarchy.state
+---@type slang-server.hierarchy.State
 M.state = { open = false }
 
 -- M.state.text_bufnr returns the most recently focused text buffer
@@ -44,6 +36,7 @@ setmetatable(M.state, {
 ---@param split NuiSplit
 ---@param tree NuiTree
 local function map_keys(split, tree)
+   ---@type slang-server.ui.Mapping[]
    local mappings
    mappings = {
       {
@@ -55,9 +48,9 @@ local function map_keys(split, tree)
                return
             end
 
-            vim.fn.setreg("+", node:get_id()) --TODO: default register
+            vim.fn.setreg("+", node.path) --TODO: default register
 
-            vim.notify("Yanked " .. node:get_id(), vim.log.levels.INFO)
+            vim.notify("Yanked " .. node.path, vim.log.levels.INFO)
          end,
          opts = { noremap = true },
          desc = "Yank hierarchical node path",
@@ -109,7 +102,7 @@ local function map_keys(split, tree)
          mode = "n",
          map = "<space>",
          fn = function()
-            local node = tree:get_node()
+            local node = tree:get_node() --[[@as slang-server.hierarchy.TreeNode]]
 
             if not node then
                return
@@ -118,7 +111,7 @@ local function map_keys(split, tree)
             if node:is_expanded() and node:collapse() then
                tree:render()
             else
-               M._lazy_open(node.path)
+               M._lazy_open(node)
             end
          end,
          opts = { noremap = true },
@@ -150,7 +143,7 @@ local function map_keys(split, tree)
 end
 
 ---@param msg string
----@param opts {parent_path: slang-server.hierarchy.Path?, hl: string?}?
+---@param opts {parent: NuiTree.Node?, hl: string?}?
 local function message(msg, opts)
    local tree = M.state.tree
    if not tree then
@@ -158,14 +151,22 @@ local function message(msg, opts)
    end
 
    opts = opts or {}
+   local id
+   if opts.parent then
+      id = opts.parent:get_id() .. "__message"
+   else
+      id = "__message"
+   end
 
    local text = NuiText(msg, opts.hl)
 
-   local msg_node = { NuiTree.Node({ text = text, path = (opts.parent_path or "") .. "__message" }) }
+   local msg_node = { NuiTree.Node({ text = text, _uid = id }) }
 
-   tree:set_nodes(msg_node, opts.parent_path)
-   if opts.parent_path then
-      tree:get_node(opts.parent_path):expand()
+   if opts.parent then
+      tree:set_nodes(msg_node, opts.parent:get_id())
+      tree:get_node(opts.parent:get_id()):expand()
+   else
+      tree:set_nodes(msg_node)
    end
 
    tree:render()
@@ -180,7 +181,7 @@ local function on_close()
    M.state.open = false
 end
 
-local function on_select()
+local function on_hover()
    if not M.state.open then
       return
    end
@@ -223,8 +224,8 @@ local function on_select()
    M.state.hover:mount()
 end
 
----@param node NuiTree.Node
----@param parent_node NuiTree.Node?
+---@param node slang-server.hierarchy.Node
+---@param parent_node slang-server.hierarchy.TreeNode?
 local function prepare_node(node, parent_node)
    local line = NuiLine()
 
@@ -279,48 +280,98 @@ local function prepare_node(node, parent_node)
    return line
 end
 
----@param nodes slang-server.TreeNode[]
----@param parent_path slang-server.hierarchy.Path?
----@return NuiTree.Node[]
-local function parse_nodes(nodes, parent_path)
+---@param node slang-server.hierarchy.TreeNode
+---@return string
+local function get_node_id(node)
+   return node._uid
+end
+
+-- Convert LSP nodes to TreeNodes
+---@param nodes slang-server.lsp.Node[]
+---@param parent_node slang-server.hierarchy.TreeNode?
+---@return slang-server.hierarchy.TreeNode[]
+local function parse_nodes(nodes, parent_node)
    local nui_nodes = {}
+   local unique_nodes = {}
    for _, node in ipairs(nodes) do
-      -- -- FIXME:
-      -- node.instName = node.instName .. string.char(math.random(32,126))
+      local treeNode = {}
 
       local sep = string.match(node.instName, "%[%d+%]") and "" or "."
-      node.path = parent_path and (parent_path .. sep .. node.instName) or node.instName
-      if node.children then
-         node._populated = #node.children > 0
-      else
-         node._populated = false
+      treeNode.path = parent_node and (parent_node.path .. sep .. node.instName) or node.instName
+
+      -- Is it possible to have non-unique paths, in cases where Slang can't
+      -- statically infer the taken branch of a conditional generate, for
+      -- example. We'll use an 'offset' to ensure IDs are unique.
+      treeNode._uid = parent_node and (parent_node._uid .. sep .. node.instName) or node.instName
+      if unique_nodes[treeNode.path] then
+         treeNode._offset = unique_nodes[treeNode.path] + 1
+         treeNode._uid = treeNode._uid .. "#" .. treeNode._offset
       end
-      nui_nodes[#nui_nodes + 1] = NuiTree.Node(node, parse_nodes(node.children or {}, node.path))
+      unique_nodes[treeNode.path] = treeNode._offset or 0
+
+      if node.children then
+         treeNode._populated = #node.children > 0
+      else
+         treeNode._populated = false
+      end
+
+      treeNode = vim.tbl_deep_extend("error", treeNode, node)
+
+      ---@cast treeNode slang-server.hierarchy.TreeNode
+
+      nui_nodes[#nui_nodes + 1] = NuiTree.Node(treeNode, parse_nodes(treeNode.children or {}, treeNode))
    end
 
    return nui_nodes
 end
 
 ---@param nodes slang-server.lsp.Node[]
----@param parent_path slang-server.hierarchy.Path?
-local function show_nodes(nodes, parent_path)
+---@param parent slang-server.hierarchy.TreeNode?
+---@param root boolean?
+local function show_nodes(nodes, parent, root)
    if not M.state.open then
       return
    end
 
-   -- Get the parent node or nil if parent_path is unset
-   local parent_node = parent_path and M.state.tree:get_node(parent_path)
+   if root and #nodes > 1 then
+      local lines = {}
+      for _, node in ipairs(nodes) do
+         lines[#lines + 1] = NuiMenu.item(node.instName)
+      end
+      local menu = NuiMenu({
+         position = "50%",
+         relative = "editor",
+         border = {
+            style = "single",
+            padding = { 1, 2 },
+            text = { top = "[Select top level instance]", top_align = "center" },
+         },
+      }, {
+         lines = lines,
+         on_submit = function(item)
+            for _, node in ipairs(nodes) do
+               if node.instName == item.text then
+                  show_nodes({ node }, parent, false)
+                  break
+               end
+            end
+         end,
+      })
+
+      menu:mount()
+      return
+   end
 
    local tree_nodes
    -- If the parent_path is already in the tree, we want to append children to the existing node
-   if parent_node then
+   if parent then
       tree_nodes = {}
       for _, node in ipairs(nodes) do
-         tree_nodes = vim.tbl_extend("error", tree_nodes, parse_nodes(node.children, parent_path))
+         tree_nodes = vim.tbl_extend("error", tree_nodes, parse_nodes(node.children, parent))
       end
-      M.state.tree:set_nodes(tree_nodes, parent_path)
+      M.state.tree:set_nodes(tree_nodes, parent:get_id())
 
-      parent_node:expand()
+      parent:expand()
    else
       tree_nodes = parse_nodes(nodes)
       M.state.tree:set_nodes(tree_nodes)
@@ -336,31 +387,38 @@ end
 -- `path` can be string or nil, with nil representing $root and returning the first top level instance (TODO:)
 -- If `path` is given and does not exist in the hierarchy, it is treated as a root node
 -- If `path` is given and exists in the hierarchy, it is considered a subscope to be populated
----@param path slang-server.hierarchy.Path?
-function M._lazy_open(path)
-   local msg_path = nil
+---@param path_or_node slang-server.hierarchy.Path | slang-server.hierarchy.TreeNode
+---@param root boolean?
+function M._lazy_open(path_or_node, root)
+   local node
+   local path
 
-   local node = path and M.state.tree:get_node(path)
+   if type(path_or_node) == "string" then
+      node = M.state.tree:get_node(path_or_node) --[[@as slang-server.hierarchy.TreeNode?]]
+      path = path_or_node
+   else
+      node = path_or_node
+      path = node.path
+   end
+
    -- Don't reload if the node is already populated
    if node and node._populated then
       node:expand()
       M.state.tree:render()
       return
-   elseif node then
-      msg_path = path
    end
 
-   message("Loading scope...", { parent_path = msg_path, hl = highlights.HIER_SUBTLE })
+   message("Loading scope...", { parent = node, hl = highlights.HIER_SUBTLE })
 
    client.getScope(M.state.text_bufnr, {
       on_success = function(resp)
-         show_nodes(resp, path)
+         show_nodes(resp, node, root)
       end,
       on_failure = handlers.defaultOnFailure,
    }, { hierPath = path })
 end
 
----@param top slang-server.hierarchy.Path? The top level at which to initialise the hierarchy
+---@param top slang-server.hierarchy.Path The top level at which to initialise the hierarchy
 function M.show(top)
    if M.state.open then
       return
@@ -380,7 +438,7 @@ function M.show(top)
 
    local event = require("nui.utils.autocmd").event
    split:on(event.BufUnload, on_close, { once = true })
-   split:on(event.CursorMoved, on_select)
+   split:on(event.CursorMoved, on_hover)
 
    split:mount()
 
@@ -388,9 +446,7 @@ function M.show(top)
 
    local tree = NuiTree({
       prepare_node = prepare_node,
-      get_node_id = function(node)
-         return node.path
-      end,
+      get_node_id = get_node_id,
       bufnr = split.bufnr,
    })
 
@@ -400,7 +456,7 @@ function M.show(top)
    M.state.split = split
    M.state.tree = tree
 
-   M._lazy_open(top)
+   M._lazy_open(top, true)
 end
 
 return M

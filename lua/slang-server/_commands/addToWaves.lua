@@ -2,7 +2,7 @@
 
 local M = {}
 
----@type slang-server.UiSubcommand
+---@type slang-server.ui.Subcommand
 M.addToWaves = {
    impl = function(args)
       local client = require("slang-server._lsp.client")
