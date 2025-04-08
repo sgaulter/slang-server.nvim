@@ -37,3 +37,12 @@
 ---@alias slang-server.lsp.Node slang-server.lsp.Item | slang-server.lsp.Var | slang-server.lsp.Scope | slang-server.lsp.FilledInstance
 
 ---@alias RespHandlers {on_success: fun(resp: any), on_failure?: fun(message: string)}
+
+---@alias slang-server.InstanceKind
+---| '"Cell"'
+---| '"Aggregate"'
+---| '"Simple"'
+
+---@class slang-server.lsp.Instance
+---@field kind slang-server.InstanceKind
+---@field path string
