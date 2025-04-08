@@ -1,13 +1,8 @@
-local NuiText = require("nui.text")
-local NuiLine = require("nui.line")
-local NuiMenu = require("nui.menu")
-local NuiSplit = require("nui.split")
-local NuiTree = require("nui.tree")
-local NuiPopup = require("nui.popup")
+local config = require("slang-server._core.config").CONFIG
+local hl = require("slang-server._core.highlights")
+local ui = require("slang-server._core.ui")
 local client = require("slang-server._lsp.client")
 local handlers = require("slang-server.handlers")
-local highlights = require("slang-server._core.highlights")
-local config = require("slang-server._core.config").CONFIG
 local util = require("slang-server.util")
 
 local M = {}
@@ -36,74 +31,57 @@ setmetatable(M.state, {
 ---@param split NuiSplit
 ---@param tree NuiTree
 local function map_keys(split, tree)
-   ---@type slang-server.ui.Mapping[]
+   ---@type table<string, slang-server.ui.Mapping[]>
    local mappings
    mappings = {
-      {
-         mode = "n",
-         map = "y",
-         fn = function()
-            local node = tree:get_node()
-            if not node then
-               return
+      ["yn"] = {
+         impl = function(node)
+            if node and node.path then
+               util.yank_and_notify(node.path)
             end
-
-            vim.fn.setreg("+", node.path) --TODO: default register
-
-            vim.notify("Yanked " .. node.path, vim.log.levels.INFO)
          end,
          opts = { noremap = true },
          desc = "Yank hierarchical node path",
       },
-      {
-         mode = "n",
-         map = "v",
-         fn = function()
-            local node = tree:get_node()
-            if not (node and node.value) then
-               return
+      ["yv"] = {
+         impl = function(node)
+            if node and node.value then
+               util.yank_and_notify(node.value)
             end
-
-            vim.fn.setreg("+", node.value) --TODO: default register
-
-            vim.notify("Yanked " .. node.value, vim.log.levels.INFO)
          end,
          opts = { noremap = true },
          desc = "Yank node value",
       },
-      {
-         mode = "n",
-         map = "<cr>",
-         fn = function()
-            local node = tree:get_node()
-            if not (node and node.instLoc) then
-               return
+      ["yf"] = {
+         impl = function(node)
+            if node and node.instLoc and node.instLoc.uri then
+               local uri = string.gsub(node.instLoc.uri, "^file://", "")
+               util.yank_and_notify(uri)
             end
-
-            util.jump_loc(node.instLoc, M.state.text_winnr)
+         end,
+         opts = { noremap = true },
+         desc = "Yank enclosing file path",
+      },
+      ["<cr>"] = {
+         impl = function(node)
+            if node and node.instLoc then
+               util.jump_loc(node.instLoc, M.state.text_winnr)
+            end
          end,
          opts = { noremap = true },
          desc = "Jump to node in source",
       },
-      {
-         mode = "n",
-         map = "gd",
-         fn = function()
-            local node = tree:get_node()
-            if not (node and node.declLoc) then
-               return
+      ["gd"] = {
+         impl = function(node)
+            if node and node.declLoc then
+               util.jump_loc(node.declLoc, M.state.text_winnr)
             end
-            util.jump_loc(node.declLoc, M.state.text_winnr)
          end,
          opts = { noremap = true },
          desc = "Jump to node declaration in source",
       },
-      {
-         mode = "n",
-         map = "<space>",
-         fn = function()
-            local node = tree:get_node() --[[@as slang-server.hierarchy.TreeNode]]
-
+      ["<space>"] = {
+         impl = function(node)
             if not node then
                return
             end
@@ -117,19 +95,15 @@ local function map_keys(split, tree)
          opts = { noremap = true },
          desc = "Expand / collapse node",
       },
-      {
-         mode = "n",
-         map = "q",
-         fn = function()
+      ["q"] = {
+         impl = function()
             split:unmount()
          end,
          opts = { noremap = true },
          desc = "Close",
       },
-      {
-         mode = "n",
-         map = "?",
-         fn = function()
+      ["?"] = {
+         impl = function()
             util.show_help(mappings, "Hierarchy view")
          end,
          opts = { noremap = true },
@@ -137,8 +111,10 @@ local function map_keys(split, tree)
       },
    }
 
-   for _, map in ipairs(mappings) do
-      split:map(map.mode, map.map, map.fn, map.opts)
+   for map, spec in pairs(mappings) do
+      split:map("n", map, function()
+         spec.impl(tree:get_node())
+      end, spec.opts)
    end
 end
 
@@ -158,9 +134,9 @@ local function message(msg, opts)
       id = "__message"
    end
 
-   local text = NuiText(msg, opts.hl)
+   local text = ui.NuiText(msg, opts.hl)
 
-   local msg_node = { NuiTree.Node({ text = text, _uid = id }) }
+   local msg_node = { ui.NuiTree.Node({ text = text, _uid = id }) }
 
    if opts.parent then
       tree:set_nodes(msg_node, opts.parent:get_id())
@@ -195,30 +171,15 @@ local function on_hover()
       return
    end
 
-   M.state.hover = NuiPopup({
-      enter = false,
-      focusable = false,
-      size = {
-         width = string.len(selected.value),
-         height = 1,
-      },
-      relative = "cursor",
-      position = {
-         row = 1,
-         col = 0,
-      },
-      border = {
-         style = "none",
-         padding = { 0, 1 },
-      },
-   })
+   M.state.hover = ui.components.hover(selected.value)
+
    local event = require("nui.utils.autocmd").event
    M.state.hover:on({ event.BufLeave }, function()
       M.state.hover:unmount()
    end, { once = true })
 
-   local line = NuiLine()
-   line:append(selected.value, highlights.HIER_VALUE)
+   local line = ui.NuiLine()
+   line:append(selected.value, hl.HIER_VALUE)
    line:render(M.state.hover.bufnr, -1, 1)
 
    M.state.hover:mount()
@@ -227,10 +188,10 @@ end
 ---@param node slang-server.hierarchy.Node
 ---@param parent_node slang-server.hierarchy.TreeNode?
 local function prepare_node(node, parent_node)
-   local line = NuiLine()
+   local line = ui.NuiLine()
 
    if node.text then
-      line:append(string.rep(" ", node:get_depth()) .. "└╴", highlights.HIER_SUBTLE)
+      line:append(string.rep(" ", node:get_depth()) .. "└╴", hl.HIER_SUBTLE)
       line:append(" ")
       line:append(node.text, "Comment")
    else
@@ -268,12 +229,12 @@ local function prepare_node(node, parent_node)
          hint = node.type
       end
 
-      line:append(string.rep("  ", node:get_depth() - 1) .. box, highlights.HIER_SUBTLE)
-      line:append(expander, highlights.HIER_NORMAL)
+      line:append(string.rep("  ", node:get_depth() - 1) .. box, hl.HIER_SUBTLE)
+      line:append(expander, hl.HIER_NORMAL)
       line:append(" " .. decoration.icon, decoration.hl)
       line:append(" " .. node.instName, decoration.hl)
       if hint then
-         line:append(" " .. hint, highlights.HIER_SUBTLE)
+         line:append(" " .. hint, hl.HIER_SUBTLE)
       end
    end
 
@@ -319,7 +280,7 @@ local function parse_nodes(nodes, parent_node)
 
       ---@cast treeNode slang-server.hierarchy.TreeNode
 
-      nui_nodes[#nui_nodes + 1] = NuiTree.Node(treeNode, parse_nodes(treeNode.children or {}, treeNode))
+      nui_nodes[#nui_nodes + 1] = ui.NuiTree.Node(treeNode, parse_nodes(treeNode.children or {}, treeNode))
    end
 
    return nui_nodes
@@ -336,17 +297,10 @@ local function show_nodes(nodes, parent, root)
    if root and #nodes > 1 then
       local lines = {}
       for _, node in ipairs(nodes) do
-         lines[#lines + 1] = NuiMenu.item(node.instName)
+         lines[#lines + 1] = ui.NuiMenu.item(node.instName)
       end
-      local menu = NuiMenu({
-         position = "50%",
-         relative = "editor",
-         border = {
-            style = "single",
-            padding = { 1, 2 },
-            text = { top = "[Select top level instance]", top_align = "center" },
-         },
-      }, {
+
+      local menu = ui.components.menu("Select top level instance", {
          lines = lines,
          on_submit = function(item)
             for _, node in ipairs(nodes) do
@@ -408,7 +362,7 @@ function M._lazy_open(path_or_node, root)
       return
    end
 
-   message("Loading scope...", { parent = node, hl = highlights.HIER_SUBTLE })
+   message("Loading scope...", { parent = node, hl = hl.HIER_SUBTLE })
 
    client.getScope(M.state.text_bufnr, {
       on_success = function(resp)
@@ -425,7 +379,7 @@ function M.show(top)
    end
 
    local hierarchy_config = config.hierarchy
-   local split = NuiSplit({
+   local split = ui.NuiSplit({
       relative = "win",
       position = hierarchy_config.position,
       size = hierarchy_config.size,
@@ -444,7 +398,7 @@ function M.show(top)
 
    vim.api.nvim_buf_set_name(split.bufnr, "Slang-server: Hierarchy")
 
-   local tree = NuiTree({
+   local tree = ui.NuiTree({
       prepare_node = prepare_node,
       get_node_id = get_node_id,
       bufnr = split.bufnr,

@@ -7,7 +7,7 @@ M.addToWaves = {
    impl = function(args)
       local client = require("slang-server._lsp.client")
       local handlers = require("slang-server.handlers")
-      local NuiMenu = require("nui.menu")
+      local ui = require("slang-server._core.ui")
 
       local bufnr = vim.api.nvim_get_current_buf()
 
@@ -23,22 +23,9 @@ M.addToWaves = {
             else
                local lines = {}
                for i = 1, #resp do
-                  table.insert(lines, NuiMenu.item(resp[i].path, { inst = resp[i] }))
+                  table.insert(lines, ui.NuiMenu.item(resp[i].path, { inst = resp[i] }))
                end
-               local menu = NuiMenu({
-                  position = "50%",
-                  border = {
-                     style = "single",
-                     padding = { 1, 2 },
-                     text = {
-                        top = "[Add Instance to Waves]",
-                        top_align = "center",
-                     },
-                  },
-                  win_options = {
-                     winhighlight = "Normal:Normal,FloatBorder:Normal",
-                  },
-               }, {
+               local menu = ui.components.menu("Add instance to waves", {
                   lines = lines,
                   on_submit = function(item)
                      client.variableToWaveform(bufnr, handlers.defaultHandlers, { hierPath = item.inst.path })

@@ -48,12 +48,12 @@
 ---@field _populated boolean
 ---@field kind slang-server.SlangKind
 ---@field instName string
----@field instLoc slang-server.SourceLoc
+---@field instLoc slang-server.ScopedRange
 ---@field type string?
 ---@field value string?
 ---@field children slang-server.hierarchy.TreeNode[]?
 ---@field declName string?
----@field declLoc slang-server.SourceLoc?
+---@field declLoc slang-server.ScopedRange?
 
 ---@class slang-server.hierarchy.MessageNode: NuiTree.Node
 ---@field text string
@@ -68,8 +68,7 @@
 ---@field complete? string | fun(subcmd_arg_lead: string): string[]
 
 ---@class slang-server.ui.Mapping
----@field mode string
 ---@field map string
----@field fn function
+---@field impl fun(node:slang-server.hierarchy.TreeNode?)
 ---@field opts table
 ---@field desc string

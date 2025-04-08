@@ -35,6 +35,15 @@ function M.complete_path(arg_lead, opts)
    return completions
 end
 
+---@param str string?
+---@param reg string?
+function M.yank_and_notify(str, reg)
+   if str then
+      vim.fn.setreg(reg or "+", str)
+      vim.notify("Yanked " .. str, vim.log.levels.INFO)
+   end
+end
+
 ---@param loc slang-server.ScopedRange
 ---@param winnr integer
 function M.jump_loc(loc, winnr)
@@ -47,43 +56,27 @@ function M.jump_loc(loc, winnr)
 end
 
 ---@param mappings slang-server.ui.Mapping[]
----@param title string?
+---@param title string
 ---@param opts table?
 function M.show_help(mappings, title, opts)
-   local NuiPopup = require("nui.popup")
-   local NuiLine = require("nui.line")
-
+   local ui = require("slang-server._core.ui")
    local hl = require("slang-server._core.highlights")
 
    opts = vim.tbl_deep_extend("force", {
-      position = "50%",
-      relative = "editor",
       size = {
          width = 50,
-         height = #mappings,
+         height = vim.tbl_count(mappings),
       },
       border = {
-         style = "rounded",
-         padding = { 1, 2 },
          text = {
-            top = title and (" " .. title .. " ") or nil,
-            top_align = "center",
-            bottom = " q: quit ",
-            bottom_align = "center",
+            bottom = "[q: quit]",
          },
       },
       enter = true,
       focusable = true,
-      buf_options = {
-         modifiable = false,
-         readonly = true,
-      },
-      win_options = {
-         winhighlight = "Normal:Normal,FloatBorder:FloatBorder",
-      },
    }, opts or {})
 
-   local popup = NuiPopup(opts)
+   local popup = ui.components.popup(title, opts)
 
    local event = require("nui.utils.autocmd").event
    popup:on({ event.BufLeave }, function()
@@ -99,16 +92,18 @@ function M.show_help(mappings, title, opts)
    end, { noremap = true })
 
    local max = 0
-   for _, map in ipairs(mappings) do
-      max = math.max(max, string.len(map.map))
+   for map, _ in pairs(mappings) do
+      max = math.max(max, string.len(map))
    end
    local fmt = string.gsub("%-_._s", "_", max)
 
-   for i, map in ipairs(mappings) do
-      local line = NuiLine()
-      line:append(string.format(fmt, map.map) .. " : " .. map.desc, hl.HIER_SUBTLE)
+   local line_n = 1
+   for map, spec in pairs(mappings) do
+      local line = ui.NuiLine()
+      line:append(string.format(fmt, map) .. " : " .. spec.desc, hl.HIER_SUBTLE)
 
-      line:render(popup.bufnr, -1, i)
+      line:render(popup.bufnr, -1, line_n)
+      line_n = line_n + 1
    end
 
    popup:mount()
