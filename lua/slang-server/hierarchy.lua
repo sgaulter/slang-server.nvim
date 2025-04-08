@@ -10,20 +10,16 @@ local M = {}
 ---@type slang-server.hierarchy.State
 M.state = { open = false }
 
--- M.state.text_bufnr returns the most recently focused text buffer
--- M.state.text_winnr returns the most recently focused text window
+-- M.state.sv_buf returns the most recently focused SV buffer info
+-- M.state.sv_winnr returns the winnr of the most recently focused visible SV buffer
 setmetatable(M.state, {
    ---@param _k string
    ---@return integer
    __index = function(self, _k)
-      local cbuf = vim.fn.bufnr()
-      local in_split = self.split and self.split.bufnr == cbuf
-
-      local cwin = vim.fn.winnr()
-      if _k == "text_bufnr" then
-         return in_split and vim.fn.bufnr("#") or cbuf
-      elseif _k == "text_winnr" then
-         return in_split and vim.fn.winnr("#") or cwin
+      if _k == "sv_buf" then
+         return util.last_buf({ buflisted = true, filetype = { "verilog", "systemverilog" } })
+      elseif _k == "sv_win" then
+         return util.last_win({ buflisted = true, filetype = { "verilog", "systemverilog" } })
       end
    end,
 })
@@ -65,7 +61,7 @@ local function map_keys(split, tree)
       ["<cr>"] = {
          impl = function(node)
             if node and node.instLoc then
-               util.jump_loc(node.instLoc, M.state.text_winnr)
+               util.jump_loc(node.instLoc, M.state.sv_win.winnr)
             end
          end,
          opts = { noremap = true },
@@ -74,7 +70,7 @@ local function map_keys(split, tree)
       ["gd"] = {
          impl = function(node)
             if node and node.declLoc then
-               util.jump_loc(node.declLoc, M.state.text_winnr)
+               util.jump_loc(node.declLoc, M.state.sv_win.winnr)
             end
          end,
          opts = { noremap = true },
@@ -364,7 +360,11 @@ function M._lazy_open(path_or_node, root)
 
    message("Loading scope...", { parent = node, hl = hl.HIER_SUBTLE })
 
-   client.getScope(M.state.text_bufnr, {
+   if not M.state.sv_buf then
+      vim.notify("No SV buffer", vim.log.levels.ERROR)
+   end
+
+   client.getScope(M.state.sv_buf.bufnr, {
       on_success = function(resp)
          show_nodes(resp, node, root)
       end,

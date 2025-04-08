@@ -38,8 +38,8 @@
 ---@field split NuiSplit?
 ---@field tree NuiTree?
 ---@field hover NuiPopup?
----@field text_bufnr integer
----@field text_winnr integer
+---@field sv_buf vim.fn.getbufinfo.ret.item?
+---@field sv_win vim.fn.getwininfo.ret.item?
 
 ---@class slang-server.hierarchy.TreeNode: NuiTree.Node
 ---@field path string

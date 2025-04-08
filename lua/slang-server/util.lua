@@ -35,6 +35,82 @@ function M.complete_path(arg_lead, opts)
    return completions
 end
 
+---@generic T
+---@generic U
+---@param xs T[]
+---@param map fun(a: T): U
+---@param reduce fun(a: U, b: U): U
+---@return U
+function M.map_reduce(xs, map, reduce)
+   local acc = map(xs[1])
+   for i = 2, #xs do
+      acc = reduce(acc, map(xs[i]))
+   end
+   return acc
+end
+
+local function buf_match(bufnr, buf_filters)
+   local match = true
+   for opt, vals in pairs(buf_filters) do
+      vals = type(vals) == "table" and vals or { vals }
+
+      match = M.map_reduce(vals, function(v)
+         return vim.api.nvim_get_option_value(opt, { buf = bufnr }) == v
+      end, vim.fn["or"])
+
+      if not match then
+         break
+      end
+   end
+   return match
+end
+
+---@param buf_filters table<string, any>
+---@return vim.fn.getbufinfo.ret.item?
+function M.last_buf(buf_filters)
+   ---@type vim.fn.getbufinfo.ret.item?
+   local last_bufinfo
+
+   for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+      if buf_match(bufnr, buf_filters) then
+         local bufinfo = vim.fn.getbufinfo(bufnr)[1]
+         if last_bufinfo == nil or (bufinfo.lastused > last_bufinfo.lastused) then
+            last_bufinfo = bufinfo
+         end
+      end
+   end
+
+   return last_bufinfo
+end
+
+---@param buf_filters table<string, any>
+---@return vim.fn.getwininfo.ret.item?
+function M.last_win(buf_filters)
+   -- NOTE: We can't directly choose windows by most recently accessed, except
+   -- for the last one "#".
+   -- In general, we find the most recently accessed buffer and return *some*
+   -- window in the current tabpage that contains it.
+
+   -- Make sure we're only checking for visible windows
+   buf_filters = vim.tbl_extend("force", buf_filters, { bufhidden = "" })
+
+   -- See if we get lucky with "#" first
+   local last_winid = vim.fn.win_getid(vim.fn.winnr("#"))
+   local last_bufnr = vim.fn.winbufnr(last_winid)
+   if last_bufnr ~= -1 and buf_match(last_bufnr, buf_filters) then
+      return vim.fn.getwininfo(last_winid)[1]
+   end
+
+   local last_bufinfo = M.last_buf(buf_filters)
+   if last_bufinfo then
+      -- Get *some* winid containing this buffer in the current tabpage
+      last_winid = vim.fn.bufwinid(last_bufinfo.bufnr)
+      if last_winid ~= -1 then
+         return vim.fn.getwininfo(last_winid)[1]
+      end
+   end
+end
+
 ---@param str string?
 ---@param reg string?
 function M.yank_and_notify(str, reg)
@@ -45,8 +121,13 @@ function M.yank_and_notify(str, reg)
 end
 
 ---@param loc slang-server.ScopedRange
----@param winnr integer
+---@param winnr integer?
 function M.jump_loc(loc, winnr)
+   if not winnr or winnr == -1 then
+      vim.notify("Cannot jump to location: invalid target window", vim.log.levels.ERROR)
+      return
+   end
+
    local win = vim.fn.win_getid(winnr)
    vim.api.nvim_set_current_win(win)
    vim.cmd.edit(loc.uri)
