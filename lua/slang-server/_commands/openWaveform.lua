@@ -11,7 +11,7 @@ M.openWaveform = {
       local file = args[1]
       client.openWaveform(vim.api.nvim_get_current_buf(), handlers.defaultHandlers, { uri = file })
    end,
-   complete = require("slang-server.util").complete_path
+   complete = require("slang-server.util").complete_path,
 }
 
 return M

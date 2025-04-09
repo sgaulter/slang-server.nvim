@@ -9,6 +9,8 @@ M.addToWaves = {
       local handlers = require("slang-server.handlers")
       local ui = require("slang-server._core.ui")
 
+      local recursive = args[1] == "true"
+
       local bufnr = vim.api.nvim_get_current_buf()
 
       client.getInstances(bufnr, {
@@ -18,8 +20,7 @@ M.addToWaves = {
                return
             end
             if #resp == 1 then
-               -- TODO -- scopes
-               client.variableToWaveform(bufnr, handlers.defaultHandlers, { hierPath = resp[1].path })
+               client.addToWaveform(bufnr, handlers.defaultHandlers, { inst = resp[1], recursive = recursive })
             else
                local lines = {}
                for i = 1, #resp do
@@ -28,7 +29,7 @@ M.addToWaves = {
                local menu = ui.components.menu("Add instance to waves", {
                   lines = lines,
                   on_submit = function(item)
-                     client.variableToWaveform(bufnr, handlers.defaultHandlers, { hierPath = item.inst.path })
+                     client.addToWaveform(bufnr, handlers.defaultHandlers, { inst = item.inst, recursive = recursive })
                   end,
                })
                menu:mount()
