@@ -110,20 +110,12 @@ end
 
 ---@param bufnr integer
 ---@param handlers RespHandlers
----@param params { inst: slang-server.lsp.Instance, recursive: boolean}
+---@param params { path: string, recursive: boolean }
 M.addToWaveform = function(bufnr, handlers, params)
-   if params.inst.kind == "Simple" then
-      lsp_execute(bufnr, {
-         command = "slang.variableToWaveform",
-         arguments = { params.inst.path },
-      }, handlers)
-   else
-      lsp_execute(bufnr, {
-         command = "slang.scopeToWaveform",
-         -- TODO -- do we need this extra level of container for slang command args?
-         arguments = { { path = params.inst.path, recursive = params.recursive } },
-      }, handlers)
-   end
+   lsp_execute(bufnr, {
+      command = "slang.addToWaveform",
+      arguments = { params },
+   }, handlers)
 end
 
 return M

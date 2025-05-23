@@ -20,16 +20,16 @@ M.addToWaves = {
                return
             end
             if #resp == 1 then
-               client.addToWaveform(bufnr, handlers.defaultHandlers, { inst = resp[1], recursive = recursive })
+               client.addToWaveform(bufnr, handlers.defaultHandlers, { path = resp[1], recursive = recursive })
             else
                local lines = {}
-               for i = 1, #resp do
-                  table.insert(lines, ui.NuiMenu.item(resp[i].path, { inst = resp[i] }))
+               for _, path in ipairs(resp) do
+                  table.insert(lines, ui.NuiMenu.item(path))
                end
                local menu = ui.components.menu("Add instance to waves", {
                   lines = lines,
                   on_submit = function(item)
-                     client.addToWaveform(bufnr, handlers.defaultHandlers, { inst = item.inst, recursive = recursive })
+                     client.addToWaveform(bufnr, handlers.defaultHandlers, { path = item.text, recursive = recursive })
                   end,
                })
                menu:mount()
