@@ -194,7 +194,13 @@ local function prepare_node(node, parent_node)
       local decoration = config.kinds[string.lower(node.kind)]
       local expander = " "
 
-      if node.kind == "Instance" or node.kind == "Scope" then
+      if
+         node.kind == "Instance"
+         or node.kind == "Scope"
+         or node.kind == "InstanceArray"
+         or node.kind == "ScopeArray"
+         or node.kind == "Package"
+      then
          if node.children and not node:is_expanded() then
             expander = ""
          else
@@ -219,7 +225,7 @@ local function prepare_node(node, parent_node)
       end
 
       local hint
-      if node.kind == "Instance" and node.declName and node.declName ~= "" then
+      if (node.kind == "Instance" or node.kind == "InstanceArray") and node.declName and node.declName ~= "" then
          hint = node.declName
       elseif node.type and node.type ~= "" then
          hint = node.type
@@ -282,43 +288,40 @@ local function parse_nodes(nodes, parent_node)
    return nui_nodes
 end
 
+---@param parent slang-server.hierarchy.TreeNode?
+---@param root boolean?
+---@param remaining_path slang-server.hierarchy.Path?
+local function open_remainder(parent, root, remaining_path)
+   local path = parent and parent.path or ""
+   if remaining_path ~= nil and remaining_path ~= "" then
+      local sep_loc = string.find(remaining_path, "[.[]", 2) or (string.len(remaining_path) + 1)
+      local is_bracket = string.sub(remaining_path, sep_loc, sep_loc) == "["
+      local before_sep = string.sub(remaining_path, 0, sep_loc - 1)
+      local after_sep = string.sub(remaining_path, sep_loc + (is_bracket and 0 or 1))
+      local before_is_bracket = string.sub(before_sep, 1, 1) == "["
+      path = path .. ((before_is_bracket or root) and "" or ".") .. before_sep
+      M._lazy_open(path, false, after_sep)
+   end
+end
+
 ---@param nodes slang-server.lsp.Node[]
 ---@param parent slang-server.hierarchy.TreeNode?
 ---@param root boolean?
-local function show_nodes(nodes, parent, root)
+---@param remaining_path slang-server.hierarchy.Path?
+local function show_nodes(nodes, parent, root, remaining_path)
    if not M.state.open then
       return
    end
 
-   if root and #nodes > 1 then
-      local lines = {}
-      for _, node in ipairs(nodes) do
-         lines[#lines + 1] = ui.NuiMenu.item(node.instName)
-      end
-
-      local menu = ui.components.menu("Select top level instance", {
-         lines = lines,
-         on_submit = function(item)
-            for _, node in ipairs(nodes) do
-               if node.instName == item.text then
-                  show_nodes({ node }, parent, false)
-                  break
-               end
-            end
-         end,
-      })
-
-      menu:mount()
-      return
-   end
-
    local tree_nodes
-   -- If the parent_path is already in the tree, we want to append children to the existing node
-   if parent then
-      tree_nodes = {}
+   if root then
       for _, node in ipairs(nodes) do
-         tree_nodes = vim.tbl_extend("error", tree_nodes, parse_nodes(node.children, parent))
+         tree_nodes = parse_nodes(nodes)
+         M.state.tree:set_nodes(tree_nodes)
       end
+   -- If the parent_path is already in the tree, we want to append children to the existing node
+   elseif parent then
+      tree_nodes = parse_nodes(nodes, parent)
       M.state.tree:set_nodes(tree_nodes, parent:get_id())
 
       parent:expand()
@@ -332,6 +335,7 @@ local function show_nodes(nodes, parent, root)
    end
 
    M.state.tree:render()
+   open_remainder(parent, root, remaining_path)
 end
 
 -- `path` can be string or nil, with nil representing $root and returning the first top level instance (TODO:)
@@ -339,7 +343,8 @@ end
 -- If `path` is given and exists in the hierarchy, it is considered a subscope to be populated
 ---@param path_or_node slang-server.hierarchy.Path | slang-server.hierarchy.TreeNode
 ---@param root boolean?
-function M._lazy_open(path_or_node, root)
+---@param remaining_path slang-server.hierarchy.Path?
+function M._lazy_open(path_or_node, root, remaining_path)
    local node
    local path
 
@@ -355,21 +360,21 @@ function M._lazy_open(path_or_node, root)
    if node and node._populated then
       node:expand()
       M.state.tree:render()
-      return
+      open_remainder(node, root, remaining_path)
+   else
+      message("Loading scope...", { parent = node, hl = hl.HIER_SUBTLE })
+
+      if not M.state.sv_buf then
+         vim.notify("No SV buffer", vim.log.levels.ERROR)
+      end
+
+      client.getScope(M.state.sv_buf.bufnr, {
+         on_success = function(resp)
+            show_nodes(resp, node, root, remaining_path)
+         end,
+         on_failure = handlers.defaultOnFailure,
+      }, { hierPath = path })
    end
-
-   message("Loading scope...", { parent = node, hl = hl.HIER_SUBTLE })
-
-   if not M.state.sv_buf then
-      vim.notify("No SV buffer", vim.log.levels.ERROR)
-   end
-
-   client.getScope(M.state.sv_buf.bufnr, {
-      on_success = function(resp)
-         show_nodes(resp, node, root)
-      end,
-      on_failure = handlers.defaultOnFailure,
-   }, { hierPath = path })
 end
 
 ---@param top slang-server.hierarchy.Path The top level at which to initialise the hierarchy
@@ -410,7 +415,7 @@ function M.show(top)
    M.state.split = split
    M.state.tree = tree
 
-   M._lazy_open(top, true)
+   M._lazy_open("", true, top)
 end
 
 return M
